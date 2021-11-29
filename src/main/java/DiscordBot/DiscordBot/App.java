@@ -2,9 +2,13 @@ package DiscordBot.DiscordBot;
 
 import discord4j.core.DiscordClient;
 import discord4j.core.DiscordClientBuilder;
+import discord4j.core.GatewayDiscordClient;
 import discord4j.core.event.domain.lifecycle.ReadyEvent;
 import discord4j.core.event.domain.message.MessageCreateEvent;
 import discord4j.core.object.entity.Message;
+import io.github.cdimascio.dotenv.Dotenv;
+import reactor.core.publisher.Mono;
+
 
 /**
  * Hello world!
@@ -14,23 +18,25 @@ public class App
 {
     public static void main( String[] args )
     {
-    	 DiscordClientBuilder builder = new DiscordClientBuilder("TOKEN HERE", null, null);
-    	    DiscordClient client = builder.build();
+    	Dotenv dotenv = Dotenv.load();
+    	String token = dotenv.get("TOKEN");
 
-    	    client.getEventDispatcher().on(ReadyEvent.class)
-    	        .subscribe(event -> {
-    	          User self = event.getSelf();
-    	          System.out.println(String.format("Logged in as %s#%s", self.getUsername(), self.getDiscriminator()));
-    	        });
+    	
+    	DiscordClient  client = DiscordClient.create(token);
+    	 
+    	
+    	Mono<Void> login = client.withGateway((GatewayDiscordClient gateway) ->
+        gateway.on(MessageCreateEvent.class, event -> {
+          Message message = event.getMessage();
+          
+          if (message.getContent().equalsIgnoreCase("!ping")) {
+              return message.getChannel()
+                  .flatMap(channel -> channel.createMessage("pong!"));
+          }
 
-    	    client.getEventDispatcher().on(MessageCreateEvent.class)
-    	        .map(MessageCreateEvent::getMessage)
-    	        .filter(message -> message.getAuthor().map(user -> !user.isBot()).orElse(false))
-    	        .filter(message -> message.getContent().orElse("").equalsIgnoreCase("!ping"))
-    	        .flatMap(Message::getChannel)
-    	        .flatMap(channel -> channel.createMessage("Pong!"))
-    	        .subscribe();
+          return Mono.empty();
+        }));
+    	
 
-    	    client.login().block();
     }
 }
